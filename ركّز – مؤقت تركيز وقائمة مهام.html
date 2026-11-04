@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ركّز – مؤقت ومهام</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;600&display=swap">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EAF1EE; --surface:#FFFFFF; --ink:#15332E; --muted:#5C7570; --line:#CFDDD8;
+  --ring:#15332E; --track:#D5E3DE; --accent:#E0A526; --accent-ink:#15332E;
+  --font:"Readex Pro","Segoe UI",Tahoma,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1F1C; --surface:#172B27; --ink:#E6F1ED; --muted:#8FA9A2; --line:#264039;
+    --ring:#E0A526; --track:#264039; --accent:#E0A526; --accent-ink:#15332E;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1F1C; --surface:#172B27; --ink:#E6F1ED; --muted:#8FA9A2; --line:#264039;
+  --ring:#E0A526; --track:#264039; --accent:#E0A526; --accent-ink:#15332E;
+}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6;display:flex;justify-content:center}
+main{width:100%;max-width:460px;padding:28px 20px 40px}
+h1{font-size:1.4rem;font-weight:600;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 24px;font-weight:300}
+.modes{display:flex;gap:8px;margin-bottom:20px}
+.modes button{flex:1;padding:10px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;font:inherit;cursor:pointer}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.timer{position:relative;width:240px;height:240px;margin:0 auto 20px}
+.timer svg{width:100%;height:100%;transform:rotate(-90deg)}
+.timer circle{fill:none;stroke-width:10}
+.track{stroke:var(--track)}
+.prog{stroke:var(--ring);stroke-linecap:round;transition:stroke-dashoffset .4s linear}
+.time{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.time b{font-size:3.4rem;font-weight:300;font-variant-numeric:tabular-nums;direction:ltr;letter-spacing:.02em}
+.time span{color:var(--muted);font-size:.9rem}
+.ctrl{display:flex;gap:10px;justify-content:center;margin-bottom:12px}
+.btn{padding:12px 28px;border-radius:999px;border:0;font:inherit;font-weight:600;cursor:pointer}
+.primary{background:var(--accent);color:var(--accent-ink)}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.stat{text-align:center;color:var(--muted);margin-bottom:28px;font-size:.95rem}
+form.add{display:flex;gap:8px;margin-bottom:12px}
+input[type=text]{flex:1;min-width:0;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+li label{flex:1;cursor:pointer}
+li.done label{text-decoration:line-through;color:var(--muted)}
+li input{width:20px;height:20px;accent-color:var(--accent)}
+li button{background:none;border:0;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px}
+.empty{color:var(--muted);text-align:center;padding:20px 0}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.prog{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>ركّز</h1>
+  <p class="sub">اختر مهمة، شغّل المؤقت، واشتغل بدون تشتّت.</p>
+
+  <div class="modes" role="group" aria-label="نوع الجلسة">
+    <button id="mFocus" aria-pressed="true">تركيز ٢٥ دقيقة</button>
+    <button id="mBreak" aria-pressed="false">استراحة ٥ دقائق</button>
+  </div>
+
+  <div class="timer">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <circle class="track" cx="100" cy="100" r="90"/>
+      <circle class="prog" id="prog" cx="100" cy="100" r="90" stroke-dasharray="565.49" stroke-dashoffset="0"/>
+    </svg>
+    <div class="time"><b id="clock">25:00</b><span id="label">جاهز للبدء</span></div>
+  </div>
+
+  <div class="ctrl">
+    <button class="btn primary" id="start">ابدأ</button>
+    <button class="btn ghost" id="reset">إعادة</button>
+  </div>
+  <div class="stat" id="stat"></div>
+
+  <form class="add" id="form">
+    <input type="text" id="task" placeholder="أضف مهمة جديدة" aria-label="مهمة جديدة" autocomplete="off">
+    <button class="btn primary" type="submit">أضف</button>
+  </form>
+  <ul id="list"></ul>
+</main>
+
+<script>
+(function(){
+  var DUR={focus:25*60,break:5*60}, C=565.49;
+  var mode='focus', left=DUR.focus, endAt=0, timer=null;
+  var tasks=[], sessions=0, today=new Date().toDateString();
+
+  function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+  function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+  tasks=load('focus_tasks',[]);
+  var s=load('focus_sessions',{day:today,n:0});
+  sessions=(s.day===today)?s.n:0;
+
+  var $=function(id){return document.getElementById(id)};
+  var clock=$('clock'),prog=$('prog'),label=$('label'),startB=$('start');
+
+  function fmt(t){var m=Math.floor(t/60),r=t%60;return (m<10?'0':'')+m+':'+(r<10?'0':'')+r}
+  function draw(){
+    clock.textContent=fmt(left);
+    prog.style.strokeDashoffset=C*(1-left/DUR[mode]);
+    document.title=(timer?fmt(left)+' – ':'')+'ركّز';
+    $('stat').textContent=sessions? 'أنجزت '+sessions+' جلسة تركيز اليوم' : 'لم تبدأ أي جلسة اليوم بعد';
+  }
+  function setMode(m){
+    stop(); mode=m; left=DUR[m];
+    $('mFocus').setAttribute('aria-pressed',m==='focus');
+    $('mBreak').setAttribute('aria-pressed',m==='break');
+    label.textContent='جاهز للبدء'; startB.textContent='ابدأ'; draw();
+  }
+  function stop(){if(timer){clearInterval(timer);timer=null}}
+  function tick(){
+    left=Math.max(0,Math.round((endAt-Date.now())/1000));
+    if(left===0){
+      stop();
+      if(mode==='focus'){sessions++;save('focus_sessions',{day:today,n:sessions})}
+      label.textContent='انتهت الجلسة'; startB.textContent='ابدأ';
+      try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
+      var next=mode==='focus'?'break':'focus'; draw(); setTimeout(function(){setMode(next)},1500); return;
+    }
+    draw();
+  }
+  startB.onclick=function(){
+    if(timer){stop();label.textContent='متوقف مؤقتًا';startB.textContent='استأنف';draw();return}
+    endAt=Date.now()+left*1000; timer=setInterval(tick,250);
+    label.textContent=mode==='focus'?'وقت التركيز':'وقت الاستراحة'; startB.textContent='إيقاف مؤقت'; tick();
+  };
+  $('reset').onclick=function(){setMode(mode)};
+  $('mFocus').onclick=function(){setMode('focus')};
+  $('mBreak').onclick=function(){setMode('break')};
+
+  function renderTasks(){
+    var ul=$('list'); ul.innerHTML='';
+    if(!tasks.length){ul.innerHTML='<li class="empty" style="justify-content:center">ما عندك مهام. أضف أول مهمة من الأعلى.</li>';return}
+    tasks.forEach(function(t,i){
+      var li=document.createElement('li'); if(t.done)li.className='done';
+      var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=t.done; cb.id='t'+i;
+      cb.onchange=function(){t.done=cb.checked;save('focus_tasks',tasks);renderTasks()};
+      var lb=document.createElement('label'); lb.htmlFor='t'+i; lb.textContent=t.text;
+      var del=document.createElement('button'); del.textContent='×'; del.setAttribute('aria-label','حذف المهمة');
+      del.onclick=function(){tasks.splice(i,1);save('focus_tasks',tasks);renderTasks()};
+      li.appendChild(cb);li.appendChild(lb);li.appendChild(del);ul.appendChild(li);
+    });
+  }
+  $('form').onsubmit=function(e){
+    e.preventDefault(); var v=$('task').value.trim(); if(!v)return;
+    tasks.unshift({text:v,done:false}); save('focus_tasks',tasks); $('task').value=''; renderTasks();
+  };
+
+  draw(); renderTasks();
+})();
+</script>
+</body>
+</html>
